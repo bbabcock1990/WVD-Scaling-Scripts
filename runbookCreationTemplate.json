@@ -19,7 +19,7 @@
             "metadata": {
                 "description": "The base URI where artifacts required by this template are located."
             },
-            "defaultValue": "https://raw.githubusercontent.com/Azure/RDS-Templates/master/wvd-templates/wvd-scaling-script/"
+            "defaultValue": "https://raw.githubusercontent.com/bbabcock1990/WVD-Public/master/"
         },
         "_artifactsLocationSasToken": {
             "type": "securestring",
