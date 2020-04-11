@@ -30,7 +30,7 @@
         }
     },
     "variables": {
-        "scriptUri": "[concat(parameters('_artifactsLocation'),'basicScale.ps1')]",
+        "scriptUri": "[concat(parameters('_artifactsLocation'),'depthScaling.ps1')]",
         "sku": "Free"
     },
     "resources": [
