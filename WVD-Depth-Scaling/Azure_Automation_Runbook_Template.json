@@ -36,7 +36,7 @@
         }
     },
     "variables": {
-        "scriptUri": "[concat(parameters('_artifactsLocation'),'/',parameters('runbookScript'))]",
+        "scriptUri": "[concat(parameters('_artifactsLocation'),parameters('runbookScript'))]",
         "sku": "Free"
     },
     "resources": [

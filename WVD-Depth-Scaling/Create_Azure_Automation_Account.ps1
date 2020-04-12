@@ -170,11 +170,11 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
 	}
 
 	#Creating a runbook and published the Scale Scripts
-	$DeploymentStatus01 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Scale_VMs_During_Peak_Hours' -RunbookScript 'WVD_Depth_Scale_VMs_During_Peak_Hours.ps1' -Force -Verbose
+	$DeploymentStatus01 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Scale_VMs_During_Peak_Hours' -RunbookScript '/WVD_Depth_Scale_VMs_During_Peak_Hours.ps1' -Force -Verbose
 	
-    $DeploymentStatus02 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Start_VMs_Before_Peak_Hours' -RunbookScript 'WVD_Depth_Start_VMs_Before_Peak_Hours.ps1' -Force -Verbose
+    $DeploymentStatus02 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Start_VMs_Before_Peak_Hours' -RunbookScript '/WVD_Depth_Start_VMs_Before_Peak_Hours.ps1' -Force -Verbose
 
-    $DeploymentStatus03 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Stop_VMs_After_Peak_Hours' -RunbookScript 'WVD_Depth_Stop_VMs_After_Peak_Hours.ps1' -Force -Verbose
+    $DeploymentStatus03 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Stop_VMs_After_Peak_Hours' -RunbookScript '/WVD_Depth_Stop_VMs_After_Peak_Hours.ps1' -Force -Verbose
     
     if ($DeploymentStatus01.ProvisioningState -eq "Succeeded") {
 
