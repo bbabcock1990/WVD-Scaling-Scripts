@@ -19,7 +19,7 @@ param(
 )
 
 #Initializing variables
-$ScriptRepoLocation = "https://raw.githubusercontent.com/bbabcock1990/WVD-Scaling-Scripts/master/"
+$ScriptRepoLocation = "https://raw.githubusercontent.com/bbabcock1990/WVD-Scaling-Scripts/master/WVD-Depth-Scaling"
 
 
 # Set the ExecutionPolicy
