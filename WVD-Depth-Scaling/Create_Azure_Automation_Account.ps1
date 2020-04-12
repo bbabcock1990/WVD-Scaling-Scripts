@@ -13,6 +13,9 @@ param(
     [Parameter(mandatory = $True)]
 	[string]$AzureRunbookWebHookName,
 
+    [Parameter(mandatory = $True)]
+	[string]$WVDTenant,
+
 	[Parameter(mandatory = $True)]
 	[string]$Location
 
@@ -45,7 +48,7 @@ if ($Context -eq $null)
 
 # Select the subscription
 $Subscription = Select-azSubscription -SubscriptionId $SubscriptionId
-Set-AzContext -SubscriptionObject $Subscription.ExtendedProperties
+$Context = Get-AzContext
 
 # Get the Role Assignment of the authenticated user. User must have Role at RG or Subscription level.
 $RoleAssignment = (Get-AzRoleAssignment -SignInName $Context.Account)
@@ -178,24 +181,20 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
     
     if ($DeploymentStatus01.ProvisioningState -eq "Succeeded") {
 
-		#Check if the Webhook URI exists in automation variable
-		$WebhookURI = Get-AzAutomationVariable -Name "WebhookURI" -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction SilentlyContinue
-		if (!$WebhookURI) {
 			$Webhook = New-AzAutomationWebhook -Name $AzureRunbookWebHookName -RunbookName 'WVD_Depth_Scale_VMs_During_Peak_Hours' -IsEnabled $True -ExpiryTime (Get-Date).AddYears(5) -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Force
 			Write-Output "Automation Account Webhook is created with name '$AzureRunbookWebHookName'"
 			$URIofWebhook = $Webhook.WebhookURI | Out-String
 			New-AzAutomationVariable -Name "WebhookURI" -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Value $URIofWebhook
 			Write-Output "Webhook URI stored in Azure Automation Acccount variables"
 			$WebhookURI = Get-AzAutomationVariable -Name "WebhookURI" -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction SilentlyContinue
-		}
+		
 	}
 
-
-
-
-
-	#}
-	# Required modules imported from Automation Account Modules gallery for Scale Script execution
+    # Add variables to Azure Runbook
+    New-AzAutomationVariable -Name "aadTenantId" -Encrypted $true -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Value (Get-AzContext).Tenant.Id
+    New-AzAutomationVariable -Name "azureSubId" -Encrypted $true -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Value (Get-AzContext).Subscription.Id
+	
+    # Required modules imported from Automation Account Modules gallery for Scale Script execution
 	foreach ($Module in $RequiredModules) {
 		# Check if the required modules are imported 
 		$ImportedModule = Get-AzAutomationModule -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Name $Module.ModuleName -ErrorAction SilentlyContinue
@@ -208,7 +207,17 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
 			Check-IfModuleIsImported -ModuleName $Module.ModuleName -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName
 		}
 	}
-	
+
+    # Setup Service Principal
+    $servicePrincipal = New-AzADServicePrincipal -DisplayName "WVD-Scaling-SVC"
+    $Password = ConvertTo-SecureString ([System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($servicePrincipal.Secret))) -AsPlainText -Force
+    $Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $servicePrincipal.ApplicationId.Guid, $Password
+    New-AzAutomationCredential -AutomationAccountName $AutomationAccountName -Name "WVD-Scaling-SVC" -Value $Credential -ResourceGroupName $ResourceGroupName
+    
+    # Add Service Principal To WVD Tenant
+    New-RdsRoleAssignment -RoleDefinitionName "RDS Owner" -ApplicationId $servicePrincipal.ApplicationId.Guid -TenantName $WVDTenant
+
+	# Output Variables
 	Write-Output "Automation Account Name:$AutomationAccountName"
 	Write-Output "Webhook URI: $($WebhookURI.value)"
 	
