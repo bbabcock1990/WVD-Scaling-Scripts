@@ -181,8 +181,8 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
 		#Check if the Webhook URI exists in automation variable
 		$WebhookURI = Get-AzAutomationVariable -Name "WebhookURI" -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction SilentlyContinue
 		if (!$WebhookURI) {
-			$Webhook = New-AzAutomationWebhook -Name $WebhookName -RunbookName $runbookName -IsEnabled $True -ExpiryTime (Get-Date).AddYears(5) -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Force
-			Write-Output "Automation Account Webhook is created with name '$WebhookName'"
+			$Webhook = New-AzAutomationWebhook -Name $AzureRunbookWebHookName -RunbookName $runbookName -IsEnabled $True -ExpiryTime (Get-Date).AddYears(5) -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Force
+			Write-Output "Automation Account Webhook is created with name '$AzureRunbookWebHookName'"
 			$URIofWebhook = $Webhook.WebhookURI | Out-String
 			New-AzAutomationVariable -Name "WebhookURI" -Encrypted $false -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -Value $URIofWebhook
 			Write-Output "Webhook URI stored in Azure Automation Acccount variables"
