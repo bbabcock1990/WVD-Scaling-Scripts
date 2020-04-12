@@ -1,64 +1,26 @@
-﻿<#
-.SYNOPSIS
-	This is a sample script for to deploy the required resources to execute scaling script in Microsoft Azure Automation Account.
-.DESCRIPTION
-	This sample script will create the scale script execution required resources in Microsoft Azure. Resources are resourcegroup,automation account,automation account runbook, 
-    automation account webhook, log analytic workspace and with customtables.
-    Run this PowerShell script in adminstrator mode
-    This script depends  Az PowerShell module. To install Az module execute the following commands. Use "-AllowClobber" parameter if you have more than one version of PowerShell modules installed.
-	
-    PS C:\>Install-Module Az  -AllowClobber
+﻿
 
-.PARAMETER SubscriptionId
- Required
- Provide Subscription Id of the Azure.
-
-.PARAMETER ResourcegroupName
- Optional
- Name of the resource group to use
- If the group does not exist it will be created
- 
-.PARAMETER AutomationAccountName
- Optional
- Provide the name of the automation account name do you want create.
-
-.PARAMETER Location
- Optional
- The datacenter location of the resources
-
-.PARAMETER WorkspaceName
- Optional
- Provide name of the log analytic workspace.
-
-.NOTES
-If you providing existing automation account. You need provide existing automation account ResourceGroupName for ResourceGroupName parameter.
- 
- Example: .\createautomationaccountandloganalyticworkspace.ps1  -SubscriptionID "Your Azure SubscriptionID" -ResourceGroupName "Name of the resource group" -AutomationAccountName "Name of the automation account name" -Location "The datacenter location of the resources" -WorkspaceName "Provide existing log analytic workspace name" 
-
-#>
 param(
 	[Parameter(mandatory = $True)]
 	[string]$SubscriptionId,
 
-	[Parameter(mandatory = $False)]
-	[string]$ResourceGroupName = "WVDAutoScaleResourceGroup",
+	[Parameter(mandatory = $True)]
+	[string]$ResourceGroupName,
 
+	[Parameter(mandatory = $True)]
+	$AutomationAccountName,
 
-	[Parameter(mandatory = $False)]
-	$AutomationAccountName = "WVDAutoScaleAutomationAccount",
+    [Parameter(mandatory = $True)]
+	[string]$AzureRunbookWebHookName,
 
-	[Parameter(mandatory = $False)]
-	[string]$Location = "West US2",
-
-	[Parameter(mandatory = $False)]
-	[string]$WorkspaceName
+	[Parameter(mandatory = $True)]
+	[string]$Location
 
 )
 
 #Initializing variables
-$ScriptRepoLocation = "https://raw.githubusercontent.com/bbabcock1990/WVD-Public/master/"
-$RunbookName = "ahead-brandon-babcock-wvd-rb"
-$WebhookName = "ahead-brandon-babcock-wvd-wh"
+$ScriptRepoLocation = "https://raw.githubusercontent.com/bbabcock1990/WVD-Scaling-Scripts/master/"
+
 
 # Set the ExecutionPolicy
 Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser -Force -Confirm:$false
@@ -66,7 +28,7 @@ Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser -Force -Con
 # Setting ErrorActionPreference to stop script execution when error occurs
 $ErrorActionPreference = "Stop"
 
-# Import Az and AzureAD modules
+# Import Az Modules
 Import-Module Az.Resources
 Import-Module Az.Accounts
 Import-Module Az.OperationalInsights
@@ -85,7 +47,7 @@ if ($Context -eq $null)
 $Subscription = Select-azSubscription -SubscriptionId $SubscriptionId
 Set-AzContext -SubscriptionObject $Subscription.ExtendedProperties
 
-# Get the Role Assignment of the authenticated user
+# Get the Role Assignment of the authenticated user. User must have Role at RG or Subscription level.
 $RoleAssignment = (Get-AzRoleAssignment -SignInName $Context.Account)
 
 if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefinitionName -eq "Contributor")
@@ -207,11 +169,14 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
 		}
 	}
 
-	#$Runbook = Get-AzAutomationRunbook -Name $RunbookName -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction SilentlyContinue
-	#if($Runbook -eq $null){
-	#Creating a runbook and published the basic Scale script file
-	$DeploymentStatus = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/runbookCreationTemplate.json" -existingAutomationAccountName $AutomationAccountName -RunbookName $RunbookName -Force -Verbose
-	if ($DeploymentStatus.ProvisioningState -eq "Succeeded") {
+	#Creating a runbook and published the Scale Scripts
+	$DeploymentStatus01 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/runbookCreationTemplate.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Scale_VMs_During_Peak_Hours' -RunbookScript 'WVD_Depth_Scale_VMs_During_Peak_Hours.ps1' -Force -Verbose
+	
+    $DeploymentStatus02 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/runbookCreationTemplate.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Start_VMs_Before_Peak_Hours' -RunbookScript 'WVD_Depth_Start_VMs_Before_Peak_Hours.ps1' -Force -Verbose
+
+    $DeploymentStatus03 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/runbookCreationTemplate.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Stop_VMs_After_Peak_Hours' -RunbookScript 'WVD_Depth_Stop_VMs_After_Peak_Hours.ps1' -Force -Verbose
+    
+    if ($DeploymentStatus01.ProvisioningState -eq "Succeeded") {
 
 		#Check if the Webhook URI exists in automation variable
 		$WebhookURI = Get-AzAutomationVariable -Name "WebhookURI" -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction SilentlyContinue
@@ -224,6 +189,11 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
 			$WebhookURI = Get-AzAutomationVariable -Name "WebhookURI" -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName -ErrorAction SilentlyContinue
 		}
 	}
+
+
+
+
+
 	#}
 	# Required modules imported from Automation Account Modules gallery for Scale Script execution
 	foreach ($Module in $RequiredModules) {
@@ -238,96 +208,10 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
 			Check-IfModuleIsImported -ModuleName $Module.ModuleName -ResourceGroupName $ResourceGroupName -AutomationAccountName $AutomationAccountName
 		}
 	}
-	if ($WorkspaceName) {
-		#Check if the log analytic workspace is exist
-		$LAWorkspace = Get-AzOperationalInsightsWorkspace | Where-Object { $_.Name -eq $WorkspaceName }
-		if (!$LAWorkspace) {
-			Write-Error "Provided log analytic workspace doesn't exist in your Subscription."
-			exit
-		}
-		$WorkSpace = Get-AzOperationalInsightsWorkspaceSharedKeys -ResourceGroupName $LAWorkspace.ResourceGroupName -Name $WorkspaceName -WarningAction Ignore
-		$LogAnalyticsPrimaryKey = $Workspace.PrimarySharedKey
-		$LogAnalyticsWorkspaceId = (Get-AzOperationalInsightsWorkspace -ResourceGroupName $LAWorkspace.ResourceGroupName -Name $workspaceName).CustomerId.GUID
-
-		# Create the function to create the authorization signature
-		function Build-Signature ($customerId,$sharedKey,$date,$contentLength,$method,$contentType,$resource)
-		{
-			$xHeaders = "x-ms-date:" + $date
-			$stringToHash = $method + "`n" + $contentLength + "`n" + $contentType + "`n" + $xHeaders + "`n" + $resource
-
-			$bytesToHash = [Text.Encoding]::UTF8.GetBytes($stringToHash)
-			$keyBytes = [Convert]::FromBase64String($sharedKey)
-
-			$sha256 = New-Object System.Security.Cryptography.HMACSHA256
-			$sha256.Key = $keyBytes
-			$calculatedHash = $sha256.ComputeHash($bytesToHash)
-			$encodedHash = [Convert]::ToBase64String($calculatedHash)
-			$authorization = 'SharedKey {0}:{1}' -f $customerId,$encodedHash
-			return $authorization
-		}
-
-		# Create the function to create and post the request
-		function Post-LogAnalyticsData ($customerId,$sharedKey,$body,$logType)
-		{
-			$method = "POST"
-			$contentType = "application/json"
-			$resource = "/api/logs"
-			$rfc1123date = [datetime]::UtcNow.ToString("r")
-			$contentLength = $body.Length
-			$signature = Build-Signature `
- 				-customerId $customerId `
- 				-sharedKey $sharedKey `
- 				-Date $rfc1123date `
- 				-contentLength $contentLength `
- 				-FileName $fileName `
- 				-Method $method `
- 				-ContentType $contentType `
- 				-resource $resource
-			$uri = "https://" + $customerId + ".ods.opinsights.azure.com" + $resource + "?api-version=2016-04-01"
-
-			$headers = @{
-				"Authorization" = $signature;
-				"Log-Type" = $logType;
-				"x-ms-date" = $rfc1123date;
-				"time-generated-field" = $TimeStampField;
-			}
-
-			$response = Invoke-WebRequest -Uri $uri -Method $method -ContentType $contentType -Headers $headers -Body $body -UseBasicParsing
-			return $response.StatusCode
-
-		}
-
-		# Specify the name of the record type that you'll be creating
-		$TenantScaleLogType = "WVDTenantScale_CL"
-
-		# Specify a field with the created time for the records
-		$TimeStampField = Get-Date
-		$TimeStampField = $TimeStampField.GetDateTimeFormats(115)
-
-
-		# Submit the data to the API endpoint
-
-		#Custom WVDTenantScale Table
-		$CustomLogWVDTenantScale = @"
-[
-    {
-    "hostpoolName":" ",
-    "logmessage": " "
-    }
-]
-"@
-
-		Post-LogAnalyticsData -customerId $LogAnalyticsWorkspaceId -sharedKey $LogAnalyticsPrimaryKey -Body ([System.Text.Encoding]::UTF8.GetBytes($CustomLogWVDTenantScale)) -logType $TenantScaleLogType
-
-
-		Write-Output "Log Analytics workspace id:$LogAnalyticsWorkspaceId"
-		Write-Output "Log Analytics workspace primarykey:$LogAnalyticsPrimaryKey"
-		Write-Output "Automation Account Name:$AutomationAccountName"
-		Write-Output "Webhook URI: $($WebhookURI.value)"
-	} else {
-		Write-Output "Automation Account Name:$AutomationAccountName"
-		Write-Output "Webhook URI: $($WebhookURI.value)"
-	}
+	
+	Write-Output "Automation Account Name:$AutomationAccountName"
+	Write-Output "Webhook URI: $($WebhookURI.value)"
+	
 }
 else
 {

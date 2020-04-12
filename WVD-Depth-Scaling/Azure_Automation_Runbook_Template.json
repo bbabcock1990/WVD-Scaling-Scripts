@@ -14,12 +14,18 @@
                 "description": "The name of the the Runbook"
             }
         },
+        "runbookScript": {
+            "type": "String",
+            "metadata": {
+                "description": "The name of the the Runbook Script to install"
+            }
+        },
         "_artifactsLocation": {
             "type": "string",
             "metadata": {
                 "description": "The base URI where artifacts required by this template are located."
             },
-            "defaultValue": "https://raw.githubusercontent.com/bbabcock1990/WVD-Public/master/"
+            "defaultValue": "https://raw.githubusercontent.com/bbabcock1990/WVD-Scaling-Scripts/master/WVD-Depth-Scaling/"
         },
         "_artifactsLocationSasToken": {
             "type": "securestring",
@@ -30,7 +36,7 @@
         }
     },
     "variables": {
-        "scriptUri": "[concat(parameters('_artifactsLocation'),'depthScaling.ps1')]",
+        "scriptUri": "[concat(parameters('_artifactsLocation'),parameters('runbookScript')]",
         "sku": "Free"
     },
     "resources": [
