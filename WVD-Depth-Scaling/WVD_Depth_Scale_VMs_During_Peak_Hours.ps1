@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Automated process of starting and stopping WVD session hosts based on user sessions.
 .DESCRIPTION
@@ -65,13 +65,13 @@ $aadTenantId = Get-AutomationVariable -Name 'aadTenantId'
 $azureSubId = Get-AutomationVariable -Name 'azureSubId'
 
 # Session Host Resource Group
-$sessionHostRg = 'WVDHP01'
+$sessionHostRg = 'ahead-brandon-babcock-testwvd-rg'
 
 # Tenant Name
-$tenantName = 'Ciraltos'
+$tenantName = 'bbbabcockwvd'
 
 # Host Pool Name
-$hostPoolName = 'HostPool01'
+$hostPoolName = 'hostpool1'
 
 ############## Functions ####################
 
@@ -93,7 +93,7 @@ Function Start-SessionHost {
         Write-Verbose "Server to start $startServerName"
         try {
             # Start the VM
-            $creds = Get-AutomationPSCredential -Name 'WVDSvcPrincipal'
+            $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
             Connect-AzAccount -ErrorAction Stop -ServicePrincipal -SubscriptionId $azureSubId -TenantId $aadTenantId -Credential $creds
             $vmName = $startServerName.Split('.')[0]
             Start-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $vmName
@@ -106,7 +106,7 @@ Function Start-SessionHost {
     }
 }
 
-function Stop-SessionHost {
+Function Stop-SessionHost {
     param (
         $SessionHosts
     )
@@ -120,11 +120,11 @@ function Stop-SessionHost {
     }
     elseif ($emptyHosts.count -ge 1) {
         Write-Verbose "Conditions met to stop a host"
-        $shutServerName = ($emptyHosts | Select-Object -first 1).SessionHostName 
+        $shutServerName = ($emptyHosts | Select-Object -last 1).SessionHostName 
         Write-Verbose "Shutting down server $shutServerName"
         try {
             # Stop the VM
-            $creds = Get-AutomationPSCredential -Name 'WVDSvcPrincipal'
+            $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
             Connect-AzAccount -ErrorAction Stop -ServicePrincipal -SubscriptionId $azureSubId -TenantId $aadTenantId -Credential $creds
             $vmName = $shutServerName.Split('.')[0]
             Stop-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $vmName -Force
@@ -141,9 +141,9 @@ function Stop-SessionHost {
 
 # Log into Azure WVD
 try {
-    $creds = Get-AutomationPSCredential -Name 'WVDSvcPrincipal'
+    $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
     Add-RdsAccount -ErrorAction Stop -DeploymentUrl "https://rdbroker.wvd.microsoft.com" -Credential $creds -ServicePrincipal -AadTenantId $aadTenantId
-    Write-verbose Get-RdsContext | Out-String
+    Write-Verbose Get-RdsContext | Out-String
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -172,8 +172,8 @@ if ($hostPool.LoadBalancerType -ne "DepthFirst") {
 # Check if peak time and adjust threshold
 $date = ((get-date).ToUniversalTime()).AddHours($utcOffset)
 $dateTime = ($date.hour).ToString() + ':' + ($date.minute).ToString() + ':' + ($date.second).ToString()
-write-verbose "Date and Time"
-write-verbose $dateTime
+Write-Verbose "Date and Time"
+Write-Verbose $dateTime
 $dateDay = (((get-date).ToUniversalTime()).AddHours($utcOffset)).dayofweek
 Write-Verbose $dateDay
 if ($dateTime -gt $startPeakTime -and $dateTime -lt $endPeakTime -and $dateDay -in $peakDay -and $usePeak -eq "yes") {
