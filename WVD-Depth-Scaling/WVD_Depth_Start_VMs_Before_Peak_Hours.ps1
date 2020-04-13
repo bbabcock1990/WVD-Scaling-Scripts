@@ -5,7 +5,7 @@
     This script is intended to automatically start 'X" session hosts in a Windows Virtual Desktop
     environment before peak-hours. The script pulls all session hosts underneath a WVD pool
     and runs the Start-AzVM command to start the desired session hosts. This runbook is triggered via
-    a Azure Function running on a trigger.
+    a Azure Automation running on a schedule.
     
 .NOTES
     Script is offered as-is with no warranty, expressed or implied.

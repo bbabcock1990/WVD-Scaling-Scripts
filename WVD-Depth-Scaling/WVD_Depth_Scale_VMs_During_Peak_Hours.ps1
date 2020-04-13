@@ -1,28 +1,17 @@
 ﻿<#
 .SYNOPSIS
-    Automated process of starting and stopping WVD session hosts based on user sessions.
+    Automated process of starting scaling 'X' number of WVD session hosts during peak-hours.
 .DESCRIPTION
-    This script is intended to automatically start and stop session hosts in a Windows Virtual Desktop
-    environment based on the number of users.  
-    The script determines the number of servers that should be running by adding the number of session 
-    in the pool to a threshold. The threshold is the number of sessions that should be available between each script run.
-    Those two numbers are added and divided by the maximum sessions per host.  The maximum session is set in the 
-    depth-first load balancing settings.  Session hosts are stopped or started based on that number.
-    Requirements:
-    An Azure Automation and an Azure Function account.
-    Azure Automation requires the az.accounts, az.compute and Microsoft.RDInfra.RDPowershell modules
-    WVD Host Pool must be set to Depth First
-    WVD deployed with a Service Principle
-    WVD Service Principle has contributor rights to the session host resource group
-    Credential object in Azure Automation with Service Principle username and Password
-    Set a GPO for the session hosts to log out disconnected and idle sessions
-    Full details can be found at:
-    https://www.ciraltos.com/automatically-start-and-stop-wvd-vms-with-azure-automation/
+    This script is intended to automatically start 'X' session hosts in a Windows Virtual Desktop
+    environment during peak-hours. The script pulls all session hosts underneath a WVD pool
+    and runs the Start-AzVM command to start the desired session hosts. This runbook is triggered via
+    a Azure Function running on a trigger.
+    
 .NOTES
     Script is offered as-is with no warranty, expressed or implied.
     Test it before you trust it
-    Author      : Travis Roberts
-    Website     : www.ciraltos.com
+    Author      : Brandon Babcock
+    Website     : https://www.linkedin.com/in/brandonbabcock1990/
     Version     : 1.0.0.0 Initial Build
 #>
 
@@ -37,20 +26,6 @@ $VerbosePreference = 'SilentlyContinue'
 
 # Server start threshold.  Number of available sessions to trigger a server start or shutdown
 $serverStartThreshold = 2
-
-# Peak time and Threshold settings
-# Set the usePeak to yes or no. 
-# Modify the peak threshold, start, stop, and peakDays as needed
-# Set utcOffset to your local time zone
-# Set usePeak to "yes" to enable peak time
-$usePeak = "no"
-# Peak server start threshold
-$peakServerStartThreshold = 4
-$startPeakTime = '08:00:00'
-$endPeakTime = '18:00:00'
-$utcOffset = '-6'
-# Peak week days
-$peakDay = 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'
 
 
 # Update the following settings for your environment
@@ -169,17 +144,6 @@ if ($hostPool.LoadBalancerType -ne "DepthFirst") {
     exit
 }
 
-# Check if peak time and adjust threshold
-$date = ((get-date).ToUniversalTime()).AddHours($utcOffset)
-$dateTime = ($date.hour).ToString() + ':' + ($date.minute).ToString() + ':' + ($date.second).ToString()
-Write-Verbose "Date and Time"
-Write-Verbose $dateTime
-$dateDay = (((get-date).ToUniversalTime()).AddHours($utcOffset)).dayofweek
-Write-Verbose $dateDay
-if ($dateTime -gt $startPeakTime -and $dateTime -lt $endPeakTime -and $dateDay -in $peakDay -and $usePeak -eq "yes") {
-    Write-Verbose "Adjusting threshold for peak hours"
-    $serverStartThreshold = $peakServerStartThreshold
-}
 
 # Get the Max Session Limit on the host pool
 # This is the total number of sessions per session host

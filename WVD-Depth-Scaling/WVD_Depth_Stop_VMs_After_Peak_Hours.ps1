@@ -5,7 +5,7 @@
     This script is intended to automatically stop session hosts in a Windows Virtual Desktop
     environment after peak-hours. The script pulls all session hosts underneath a WVD pool
     and runs the Stop-AzVM command to shut the session host down. This runbook is triggered via
-    a Azure Function running on a trigger.
+    a Azure Automation running on a trigger.
     
 .NOTES
     Script is offered as-is with no warranty, expressed or implied.
