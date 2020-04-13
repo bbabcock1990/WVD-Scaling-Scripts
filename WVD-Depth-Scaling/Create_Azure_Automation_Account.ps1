@@ -1,4 +1,21 @@
-﻿
+﻿<#
+.SYNOPSIS
+    Automated process of setting up Azure Automation Account for WVD Depth Load Balacing.
+.DESCRIPTION
+    This script is intended to automatically setup a Azure Automation Account with three
+    powershell scripts to faciliate load balancing for WVD Host Pools configured as Depth
+    Load Balancing.
+
+    You must have the AZ and WVD modules installed.
+    You must be running with a user who has Contributor or Owner rights.
+    
+.NOTES
+    Script is offered as-is with no warranty, expressed or implied.
+    Test it before you trust it
+    Author      : Brandon Babcock
+    Website     : https://www.linkedin.com/in/brandonbabcock1990/
+    Version     : 1.0.0.0 Initial Build
+#>
 
 param(
 	[Parameter(mandatory = $True)]
@@ -56,7 +73,7 @@ $RoleAssignment = (Get-AzRoleAssignment -SignInName $Context.Account)
 if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefinitionName -eq "Contributor")
 {
 
-	#Check if the resourcegroup exist
+	#Check if the Resource Group exist
 	$ResourceGroup = Get-AzResourceGroup -Name $ResourceGroupName -Location $Location -ErrorAction SilentlyContinue
 	if ($ResourceGroup -eq $null) {
 		New-AzResourceGroup -Name $ResourceGroupName -Location $Location -Force -Verbose
@@ -172,7 +189,7 @@ if ($RoleAssignment.RoleDefinitionName -eq "Owner" -or $RoleAssignment.RoleDefin
 		}
 	}
 
-	#Creating a runbook and published the Scale Scripts
+	#Creating a runbook and published the Scaling Scripts
 	$DeploymentStatus01 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Scale_VMs_During_Peak_Hours' -RunbookScript '/WVD_Depth_Scale_VMs_During_Peak_Hours.ps1' -Force -Verbose
 	
     $DeploymentStatus02 = New-AzResourceGroupDeployment -ResourceGroupName $ResourceGroupName -TemplateUri "$ScriptRepoLocation/Azure_Automation_Runbook_Template.json" -existingAutomationAccountName $AutomationAccountName -RunbookName 'WVD_Depth_Start_VMs_Before_Peak_Hours' -RunbookScript '/WVD_Depth_Start_VMs_Before_Peak_Hours.ps1' -Force -Verbose
