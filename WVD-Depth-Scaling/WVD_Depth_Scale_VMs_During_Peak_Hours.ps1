@@ -6,7 +6,11 @@
     environment during peak-hours. The script pulls all session hosts underneath a WVD pool
     and runs the Start-AzVM command to start the desired session hosts. This runbook is triggered via
     a Azure Function running on a trigger.
-    
+
+    Please make sure your Azure Function is setup in the correct timezone by using the Applicaton Settings:
+
+    WEBSITE_TIME_ZONE : YOUR TIME ZONE (Eastern Standard Time)
+
 .NOTES
     Script is offered as-is with no warranty, expressed or implied.
     Test it before you trust it
@@ -25,18 +29,15 @@ $defaultErrorAction = $ErrorActionPreference
 $VerbosePreference = 'SilentlyContinue'
 
 # Server start threshold.  Number of available sessions to trigger a server start or shutdown
-$serverStartThreshold = 2
+# (Active Sessions + Threshold) / Max Connections per session host
+$serverStartThreshold = 1
 
 
 # Update the following settings for your environment
 # Tenant ID of Azure AD
-#$aadTenantId = '<Enter Tenant ID>'
-# Or use an Azure Automation Encrypted Variable
 $aadTenantId = Get-AutomationVariable -Name 'aadTenantId'
 
 # Azure Subscription ID
-#$azureSubId = '<Enter Tenanat ID>'
-# Or use an Azure Automation Encrypted Variable
 $azureSubId = Get-AutomationVariable -Name 'azureSubId'
 
 # Session Host Resource Group
@@ -184,6 +185,10 @@ $sessionHostTarget = [math]::Ceiling((($currentSessions + $serverStartThreshold)
 if ($runningSessionHostsCount -lt $sessionHostTarget) {
     Write-Verbose "Running session host count $runningSessionHosts is less than session host target count $sessionHostTarget, run start function"
     Start-SessionHost -Sessionhosts $sessionHosts
+}
+elseif ($runningSessionHostsCount -eq $sessionHostTarget) {
+    Write-Verbose "Running session hosts count $runningSessionHostsCount is greater than session host target count $sessionHostTarget, run stop function"
+    Stop-SessionHost -SessionHosts $sessionHosts
 }
 elseif ($runningSessionHostsCount -gt $sessionHostTarget) {
     Write-Verbose "Running session hosts count $runningSessionHostsCount is greater than session host target count $sessionHostTarget, run stop function"
