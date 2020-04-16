@@ -1,2 +1,3 @@
-# WVD-Public
-Scripts for WVD
+Scripts for scaling WVD hosts.
+
+<will add deployment steps here>
