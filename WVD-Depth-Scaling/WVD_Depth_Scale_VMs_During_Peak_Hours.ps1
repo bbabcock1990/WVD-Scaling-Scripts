@@ -187,7 +187,7 @@ if ($runningSessionHostsCount -lt $sessionHostTarget) {
     Start-SessionHost -Sessionhosts $sessionHosts
 }
 elseif ($runningSessionHostsCount -eq $sessionHostTarget) {
-    Write-Verbose "Running session hosts count $runningSessionHostsCount is greater than session host target count $sessionHostTarget, run stop function"
+    Write-Verbose "Running session hosts count $runningSessionHostsCount is equal to the session host target count $sessionHostTarget, run stop function"
     Stop-SessionHost -SessionHosts $sessionHosts
 }
 elseif ($runningSessionHostsCount -gt $sessionHostTarget) {
