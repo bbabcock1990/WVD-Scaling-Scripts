@@ -39,7 +39,7 @@ $sessionHostCount = 5
 try {
     $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
     Add-RdsAccount -ErrorAction Stop -DeploymentUrl "https://rdbroker.wvd.microsoft.com" -Credential $creds -ServicePrincipal -AadTenantId $aadTenantId
-    Write-Verbose Get-RdsContext | Out-String
+    Write-Verbose Get-RdsContext | Out-String -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -51,7 +51,7 @@ catch {
 try {
     $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
     Connect-AzAccount -ErrorAction Stop -ServicePrincipal -SubscriptionId $azureSubId -TenantId $aadTenantId -Credential $creds
-    Write-Verbose Get-RdsContext | Out-String
+    Write-Verbose Get-RdsContext | Out-String -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -62,8 +62,7 @@ catch {
 # Get Host Pool 
 try {
     $hostPool = Get-RdsHostPool -ErrorVariable Stop $tenantName $hostPoolName 
-    Write-Verbose "HostPool:"
-    Write-Verbose $hostPool.HostPoolName
+    Write-Verbose "HostPool: $hostPool.HostPoolName" -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -77,7 +76,7 @@ $sessionHostList = Get-RdsSessionHost -TenantName $tenantName -HostPoolName $hos
 # Start 'X' Session Host. Session Host >= 'X'
 try{
     For ($i=0; $i -lt ($sessionHostCount); $i++) {
-        Write-Output $sessionHostList[$i].SessionHostName.Split('.')[0]
+        Write-Verbose "Starting Host: $sessionHostList[$i].SessionHostName.Split('.')[0]" -Verbose
         Start-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $sessionHostList[$i].SessionHostName.Split('.')[0] -AsJob
     }
 }

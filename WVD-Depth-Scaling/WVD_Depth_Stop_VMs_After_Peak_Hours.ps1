@@ -36,7 +36,7 @@ $hostPoolName = 'hostpool1'
 try {
     $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
     Add-RdsAccount -ErrorAction Stop -DeploymentUrl "https://rdbroker.wvd.microsoft.com" -Credential $creds -ServicePrincipal -AadTenantId $aadTenantId
-    Write-Verbose Get-RdsContext | Out-String
+    Write-Verbose Get-RdsContext | Out-String -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -48,7 +48,7 @@ catch {
 try {
     $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
     Connect-AzAccount -ErrorAction Stop -ServicePrincipal -SubscriptionId $azureSubId -TenantId $aadTenantId -Credential $creds
-    Write-Verbose Get-RdsContext | Out-String
+    Write-Verbose Get-RdsContext | Out-String -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -59,8 +59,7 @@ catch {
 # Get Host Pool 
 try {
     $hostPool = Get-RdsHostPool -ErrorVariable Stop $tenantName $hostPoolName 
-    Write-Verbose "HostPool:"
-    Write-Verbose $hostPool.HostPoolName
+    Write-Verbose "Host Pool: $hostPool.HostPoolName" -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -74,6 +73,7 @@ $sessionHostList = Get-RdsSessionHost -TenantName $tenantName -HostPoolName $hos
 # Shutdown Each Session Host
 try{
     foreach ($session in $sessionHostList) {
+        Write-Verbose "Shutting down: $session.SessionHostName.Split('.')[0]" -Verbose
         Stop-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $session.SessionHostName.Split('.')[0] -Force -AsJob
     }
 }

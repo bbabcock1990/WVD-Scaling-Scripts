@@ -57,16 +57,16 @@ Function Start-SessionHost {
     )
     # Number of off session hosts accepting connections
     $offSessionHosts = $sessionHosts | Where-Object { $_.Status -eq "NoHeartBeat" }
-    Write-Verbose "Off Session Hosts $offSessionHostsCount"
-    Write-Verbose ($offSessionHosts | Out-String)
+    Write-Verbose "Off Session Hosts $offSessionHostsCount" -Verbose
+    Write-Verbose ($offSessionHosts | Out-String) -Verbose
 
     if ($offSessionHosts.Count -eq 0 ) {
         Write-Error "Start threshold met, but there are no hosts available to start"
     }
     else {
-        Write-Verbose "Conditions met to start a host"
+        Write-Verbose "Conditions met to start a host" -Verbose
         $startServerName = ($offSessionHosts | Select-Object -first 1).SessionHostName
-        Write-Verbose "Server to start $startServerName"
+        Write-Verbose "Server to start $startServerName" -Verbose
         try {
             # Start the VM
             $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
@@ -90,14 +90,14 @@ Function Stop-SessionHost {
     # Get computers running with no users
     $emptyHosts = $sessionHosts | Where-Object { $_.Sessions -eq 0 -and $_.Status -eq 'Available' }
 
-    Write-Verbose "Evaluating servers to shut down"
-    if ($emptyHosts.count -eq 0) {
+    Write-Verbose "Evaluating servers to shut down" -Verbose
+    if ($emptyHosts.count -eq 1) {
         Write-error "No hosts available to shut down"
     }
-    elseif ($emptyHosts.count -ge 1) {
-        Write-Verbose "Conditions met to stop a host"
+    elseif ($emptyHosts.count -gt 1) {
+        Write-Verbose "Conditions met to stop a host" -Verbose
         $shutServerName = ($emptyHosts | Select-Object -last 1).SessionHostName 
-        Write-Verbose "Shutting down server $shutServerName"
+        Write-Verbose "Shutting down server $shutServerName" -Verbose
         try {
             # Stop the VM
             $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
@@ -119,7 +119,7 @@ Function Stop-SessionHost {
 try {
     $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
     Add-RdsAccount -ErrorAction Stop -DeploymentUrl "https://rdbroker.wvd.microsoft.com" -Credential $creds -ServicePrincipal -AadTenantId $aadTenantId
-    Write-Verbose Get-RdsContext | Out-String
+    Write-Verbose Get-RdsContext | Out-String -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -129,9 +129,8 @@ catch {
 
 # Get Host Pool 
 try {
-    $hostPool = Get-RdsHostPool -ErrorVariable Stop $tenantName $hostPoolName 
-    Write-Verbose "HostPool:"
-    Write-Verbose $hostPool.HostPoolName
+    $hostPool = Get-RdsHostPool -ErrorVariable Stop $tenantName $hostPoolName
+    Write-Verbose "HostPool:  $hostPool.HostPoolName" -Verbose
 }
 catch {
     $ErrorMessage = $_.Exception.message
@@ -149,8 +148,7 @@ if ($hostPool.LoadBalancerType -ne "DepthFirst") {
 # Get the Max Session Limit on the host pool
 # This is the total number of sessions per session host
 $maxSession = $hostPool.MaxSessionLimit
-Write-Verbose "MaxSession:"
-Write-Verbose $maxSession
+Write-Verbose "MaxSession:  $maxSession" -Verbose
 
 # Find the total number of session hosts
 # Exclude servers that do not allow new connections
@@ -169,31 +167,30 @@ foreach ($sessionHost in $sessionHosts) {
     $count = $sessionHost.sessions
     $currentSessions += $count
 }
-Write-Verbose "CurrentSessions"
-Write-Verbose $currentSessions
+Write-Verbose "CurrentSessions:  $currentSessions" -Verbose
 
 # Number of running and available session hosts
 # Host shut down are excluded
 $runningSessionHosts = $sessionHosts | Where-Object { $_.Status -eq "Available" }
 $runningSessionHostsCount = $runningSessionHosts.count
-Write-Verbose "Running Session Host $runningSessionHostsCount"
-Write-Verbose ($runningSessionHosts | Out-string)
+Write-Verbose "Running Session Host $runningSessionHostsCount" -Verbose
+Write-Verbose ($runningSessionHosts | Out-string) -Verbose
 
 # Target number of servers required running based on active sessions, Threshold and maximum sessions per host
 $sessionHostTarget = [math]::Ceiling((($currentSessions + $serverStartThreshold) / $maxSession))
 
 if ($runningSessionHostsCount -lt $sessionHostTarget) {
-    Write-Verbose "Running session host count $runningSessionHosts is less than session host target count $sessionHostTarget, run start function"
+    Write-Verbose "Running session host count $runningSessionHosts is less than session host target count $sessionHostTarget, run start function" -Verbose
     Start-SessionHost -Sessionhosts $sessionHosts
 }
 elseif ($runningSessionHostsCount -eq $sessionHostTarget) {
-    Write-Verbose "Running session hosts count $runningSessionHostsCount is equal to the session host target count $sessionHostTarget, run stop function"
+    Write-Verbose "Running session hosts count $runningSessionHostsCount is equal than session host target count $sessionHostTarget, run stop function" -Verbose
     Stop-SessionHost -SessionHosts $sessionHosts
 }
 elseif ($runningSessionHostsCount -gt $sessionHostTarget) {
-    Write-Verbose "Running session hosts count $runningSessionHostsCount is greater than session host target count $sessionHostTarget, run stop function"
+    Write-Verbose "Running session hosts count $runningSessionHostsCount is greater than session host target count $sessionHostTarget, run stop function" -Verbose
     Stop-SessionHost -SessionHosts $sessionHosts
 }
 else {
-    Write-Verbose "Running session host count $runningSessionHostsCount matches session host target count $sessionHostTarget, doing nothing"
+    Write-Verbose "Running session host count $runningSessionHostsCount matches session host target count $sessionHostTarget, doing nothing" -Verbose
 }
