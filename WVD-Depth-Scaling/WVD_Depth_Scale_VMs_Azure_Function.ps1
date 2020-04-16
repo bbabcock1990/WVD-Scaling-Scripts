@@ -32,29 +32,44 @@
 param($Timer)
 
 ######## Variables ##########
-[int]$hour = (get-date -format HH)#-6 #Convert UTC TO CST -6
-[string]$day=(get-date).DayOfWeek
+
+# Business Start and Stop Hours
+[int]$startHour = 8
+[int]$stopHour = 17
+
+# Business Work Days
+[array]$workDays='Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'
+
+# Pulling the current hour and day
+[int]$currenthour = (get-date -format HH)
+[string]$currentDay = (get-date).DayOfWeek
 
 
-#Check the day against working days
-if ($day -ne 'Saturday' -and $day -ne 'Sunday')
+# Check the current day against working days
+if ($currentDay -in $workDays)
 {
-    Write-Output "The Day Is: $day"
-    If($hour -lt 8 -or $hour -gt 17)
+ 
+    If($currentHour -lt $startHour -or $currentHour -gt $stopHour)
     { 
-        Write-output "Currently Not In Peak Hours" 
-        Write-Output "Not Scaling-All Hosts Should Be Shut Down via Azure Automation"
+        # If not within working hours, do nothing
+        Write-Host "We are currently NOT in peak hours"
+        Write-Host "The current day/hour is: " $currentDay ":" $currenthour
+        Write-Host "Not scaling hosts. All hosts should be shut down via Azure Automation"
     }
     else
     {
-        #If working hours and working days, scale WVD Hosts
-        Write-Output "Currently In Peak Hours and Scaling via Azure Automation"
-        Invoke-WebRequest -Uri "https://s1events.azure-automation.net/webhooks?token=0dAbqUUxcbuD1%2fzJgLwK0tOuL7QG7Kly64VJlVjmgYk%3d" -Method POST
+        # If within hours, scale WVD Hosts
+        Write-Host "We are currently IN peak hours"
+        Write-Host "The current day/hour is: " $currentDay ":" $currenthour
+        Write-Host "Currently scaling hosts via Azure Automation"
+        Invoke-WebRequest -Uri "https://s1events.azure-automation.net/webhooks?token=%2f1gN2GS1h9VvTnrsYkh%2fypfZ5oSBbKnnARanREFinXQ%3d" -Method POST
     }
 }
 else
 {
-    Write-Output "The Day Is: $Day"
-    Write-Output "Not Scaling-All Hosts Should Be Shut Down via Azure Automation"
+    # If not within working days, do nothing
+    Write-Host "We are currently NOT in peak hours or working days"
+    Write-Host "The current day/hour is: " $currentDay ":" $currenthour
+    Write-Host "Not scaling hosts. All hosts should be shut down via Azure Automation"
 }
 
