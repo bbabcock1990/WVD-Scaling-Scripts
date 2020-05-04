@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Automated process of starting 'X' number of WVD session hosts before peak-hours.
+    Automated process of stopping all WVD session hosts after peak-hours.
 .DESCRIPTION
-    This script is intended to automatically start 'X" session hosts in a Windows Virtual Desktop
-    environment before peak-hours. The script pulls all session hosts underneath a WVD pool
-    and runs the Start-AzVM command to start the desired session hosts. This runbook is triggered via
+    This script is intended to automatically stop session hosts in a Windows Virtual Desktop
+    environment after peak-hours. The script pulls all session hosts underneath a WVD pool
+    and runs the Stop-AzVM command to shut the session host down. This runbook is triggered via
     a Azure Function running on a trigger.
     
 .NOTES
@@ -29,9 +29,6 @@ $tenantName = 'bbbabcockwvd'
 
 # Host Pool Name
 $hostPoolName = 'dsshostpool'
-
-# Amount of Sessions Hosts To Start
-$sessionHostCount = 1
 
 ########## Script Execution ##########
 
@@ -63,7 +60,6 @@ catch {
     Break
 }
 
-
 # Get Host Pool 
 try {
     Write-Output "Grabbing Hostpool: $hostPoolName"
@@ -76,24 +72,26 @@ catch {
     Write-Error ("Error Getting Hostpool Details: " + $ErrorMessage)
     Break
 }
+
 # Get List Of All Session Host Under Host Pool
 Write-Output "Grabbing All Session Host Underneath Hostpool: $hostPoolName"
 $sessionHostList = Get-RdsSessionHost -TenantName $tenantName -HostPoolName $hostPoolName
 Write-Output $sessionHostList
 Write-Output "Grabbed All Session Host Successfully"
 
-# Start 'X' Session Host. Session Host >= 'X'
+# Shutdown Each Session Host
 try{
-    For ($i=0; $i -lt ($sessionHostCount); $i++) {
-        $vmName=$sessionHostList.SessionHostName.Split('.')[0]
-        Write-Output "Trying To StartUp: $vmName"
-        Start-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $vmName -AsJob
-        Write-Output "Startup Sucessfull"
+    foreach ($session in $sessionHostList) {
+        $vmName=$session.SessionHostName.Split('.')[0]
+        Write-Output "Trying To Shut Down: $vmName"
+        Stop-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $vmName -Force -AsJob 
+        Write-Output "Shutdown Sucessfull"
     }
 }
 catch{
     $ErrorMessage = $_.Exception.message
-    Write-Error ("Error starting VMs: " + $ErrorMessage)
+    Write-Error ("Error Shutting Down VMs: " + $ErrorMessage)
     Break
 }
+
 
