@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Automated process of starting scaling 'X' number of WVD session hosts during peak-hours.
 .DESCRIPTION
@@ -47,7 +47,7 @@ $sessionHostRg = 'ahead-brandon-babcock-testwvd-rg'
 $tenantName = 'bbbabcockwvd'
 
 # Host Pool Name
-$hostPoolName = 'hostpool1'
+$hostPoolName = 'dsshostpool'
 
 ############## Functions ####################
 
@@ -57,22 +57,28 @@ Function Start-SessionHost {
     )
     # Number of off session hosts accepting connections
     $offSessionHosts = $sessionHosts | Where-Object { $_.Status -eq "NoHeartBeat" }
-    Write-Verbose "Off Session Hosts $offSessionHostsCount" -Verbose
-    Write-Verbose ($offSessionHosts | Out-String) -Verbose
+    Write-Output "Current Number Of Turned Off Session Host: $offSessionHostsCount"
+    Write-Output "Current List Of Turned Of Session Hosts:"
+    Write-Output $offSessionHosts | Out-String
 
     if ($offSessionHosts.Count -eq 0 ) {
         Write-Error "Start threshold met, but there are no hosts available to start"
     }
     else {
-        Write-Verbose "Conditions met to start a host" -Verbose
+        Write-Output "Conditions met to start a host"
         $startServerName = ($offSessionHosts | Select-Object -first 1).SessionHostName
-        Write-Verbose "Server to start $startServerName" -Verbose
+        Write-Output "Server to start $startServerName"
         try {
             # Start the VM
             $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
             Connect-AzAccount -ErrorAction Stop -ServicePrincipal -SubscriptionId $azureSubId -TenantId $aadTenantId -Credential $creds
+            Write-Output "Trying To Log Into Azure..."
+            Write-Output $context
+            Write-Output "Login Successfull!"
             $vmName = $startServerName.Split('.')[0]
+            Write-Output "Trying To Start Up: $vmName"
             Start-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $vmName
+            Write-Output "Startup Sucessfull"
         }
         catch {
             $ErrorMessage = $_.Exception.message
@@ -90,20 +96,25 @@ Function Stop-SessionHost {
     # Get computers running with no users
     $emptyHosts = $sessionHosts | Where-Object { $_.Sessions -eq 0 -and $_.Status -eq 'Available' }
 
-    Write-Verbose "Evaluating servers to shut down" -Verbose
+    Write-Output "Evaluating servers to shut down"
     if ($emptyHosts.count -eq 1) {
         Write-error "No hosts available to shut down"
     }
     elseif ($emptyHosts.count -gt 1) {
-        Write-Verbose "Conditions met to stop a host" -Verbose
+        Write-Output "Conditions met to stop a host"
         $shutServerName = ($emptyHosts | Select-Object -last 1).SessionHostName 
-        Write-Verbose "Shutting down server $shutServerName" -Verbose
+        Write-Output "Shutting down server $shutServerName"
         try {
             # Stop the VM
             $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
             Connect-AzAccount -ErrorAction Stop -ServicePrincipal -SubscriptionId $azureSubId -TenantId $aadTenantId -Credential $creds
+            Write-Output "Trying To Log Into Azure..."
+            Write-Output $context
+            Write-Output "Login Successfull!"
             $vmName = $shutServerName.Split('.')[0]
+            Write-Output "Trying To Shutdown: $vmName"
             Stop-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $vmName -Force
+            Write-Output "Shutdown Sucessfull"
         }
         catch {
             $ErrorMessage = $_.Exception.message
@@ -118,23 +129,27 @@ Function Stop-SessionHost {
 # Log into Azure WVD
 try {
     $creds = Get-AutomationPSCredential -Name 'WVD-Scaling-SVC'
-    Add-RdsAccount -ErrorAction Stop -DeploymentUrl "https://rdbroker.wvd.microsoft.com" -Credential $creds -ServicePrincipal -AadTenantId $aadTenantId
-    Write-Verbose Get-RdsContext | Out-String -Verbose
+    $context=Add-RdsAccount -ErrorAction Stop -DeploymentUrl "https://rdbroker.wvd.microsoft.com" -Credential $creds -ServicePrincipal -AadTenantId $aadTenantId
+    Write-Output "Trying To Log Into Azure WVD Tenant..."
+    Write-Output $context
+    Write-Output "Login Successfull!"
 }
 catch {
     $ErrorMessage = $_.Exception.message
-    Write-Error ("Error logging into WVD: " + $ErrorMessage)
+    Write-Error ("Error Logging Into Azure WVD: " + $ErrorMessage)
     Break
 }
 
 # Get Host Pool 
 try {
-    $hostPool = Get-RdsHostPool -ErrorVariable Stop $tenantName $hostPoolName
-    Write-Verbose "HostPool:  $hostPool.HostPoolName" -Verbose
+    Write-Output "Grabbing Hostpool: $hostPoolName"
+    $hostPool = Get-RdsHostPool -ErrorVariable Stop $tenantName $hostPoolName 
+    Write-Output $hostPool
+    Write-Output "Grabbed Hostpool Successfully"
 }
 catch {
     $ErrorMessage = $_.Exception.message
-    Write-Error ("Error getting host pool details: " + $ErrorMessage)
+    Write-Error ("Error Getting Hostpool Details: " + $ErrorMessage)
     Break
 }
 
@@ -148,11 +163,12 @@ if ($hostPool.LoadBalancerType -ne "DepthFirst") {
 # Get the Max Session Limit on the host pool
 # This is the total number of sessions per session host
 $maxSession = $hostPool.MaxSessionLimit
-Write-Verbose "MaxSession:  $maxSession" -Verbose
+Write-Output "MaxSession Per Host:  $maxSession"
 
 # Find the total number of session hosts
 # Exclude servers that do not allow new connections
 try {
+    Write-Output "Grabbing All Session Host Where New Logins Are Allowed:"
     $sessionHosts = Get-RdsSessionHost -ErrorAction Stop -tenant $tenantName -HostPool $hostPoolName | Where-Object { $_.AllowNewSession -eq $true }
 }
 catch {
@@ -167,30 +183,31 @@ foreach ($sessionHost in $sessionHosts) {
     $count = $sessionHost.sessions
     $currentSessions += $count
 }
-Write-Verbose "CurrentSessions:  $currentSessions" -Verbose
+Write-Output "Current Live Sessions:  $currentSessions"
 
 # Number of running and available session hosts
 # Host shut down are excluded
 $runningSessionHosts = $sessionHosts | Where-Object { $_.Status -eq "Available" }
 $runningSessionHostsCount = $runningSessionHosts.count
-Write-Verbose "Running Session Host $runningSessionHostsCount" -Verbose
-Write-Verbose ($runningSessionHosts | Out-string) -Verbose
+Write-Output "Running Session Host That Are Available: $runningSessionHostsCount"
+Write-Output "Running Session Host List:" 
+Write-Output $runningSessionHosts | Out-String
 
 # Target number of servers required running based on active sessions, Threshold and maximum sessions per host
 $sessionHostTarget = [math]::Ceiling((($currentSessions + $serverStartThreshold) / $maxSession))
 
 if ($runningSessionHostsCount -lt $sessionHostTarget) {
-    Write-Verbose "Running session host count $runningSessionHosts is less than session host target count $sessionHostTarget, run start function" -Verbose
+    Write-Output "Running session host count $runningSessionHosts is less than session host target count $sessionHostTarget, run start function" 
     Start-SessionHost -Sessionhosts $sessionHosts
 }
 elseif ($runningSessionHostsCount -eq $sessionHostTarget) {
-    Write-Verbose "Running session hosts count $runningSessionHostsCount is equal than session host target count $sessionHostTarget, run stop function" -Verbose
+    Write-Output "Running session hosts count $runningSessionHostsCount is equal than session host target count $sessionHostTarget, run stop function" 
     Stop-SessionHost -SessionHosts $sessionHosts
 }
 elseif ($runningSessionHostsCount -gt $sessionHostTarget) {
-    Write-Verbose "Running session hosts count $runningSessionHostsCount is greater than session host target count $sessionHostTarget, run stop function" -Verbose
+    Write-Output "Running session hosts count $runningSessionHostsCount is greater than session host target count $sessionHostTarget, run stop function" 
     Stop-SessionHost -SessionHosts $sessionHosts
 }
 else {
-    Write-Verbose "Running session host count $runningSessionHostsCount matches session host target count $sessionHostTarget, doing nothing" -Verbose
+    Write-Output "Running session host count $runningSessionHostsCount matches session host target count $sessionHostTarget, doing nothing" 
 }
