@@ -85,7 +85,7 @@ Write-Output "Grabbed All Session Host Successfully"
 # Start 'X' Session Host. Session Host >= 'X'
 try{
     For ($i=0; $i -lt ($sessionHostCount); $i++) {
-        $vmName=$sessionHostList.SessionHostName.Split('.')[0]
+        $vmName=$sessionHostList[$i].SessionHostName.Split('.')[0]
         Write-Output "Trying To StartUp: $vmName"
         Start-AzVM -ErrorAction Stop -ResourceGroupName $sessionHostRg -Name $vmName -AsJob
         Write-Output "Startup Sucessfull"
